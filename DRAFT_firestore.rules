@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Catch-All Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admins configured via /admins collection or user runtime email
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         request.auth.token.email == 'sujanraojonalagadda@gmail.com' &&
+         request.auth.token.email_verified == true)
+      );
+    }
+
+    // Diagnostic Connection Health Check
+    match /test/{testId} {
+      allow read: if isValidId(testId);
+      allow write: if false;
+    }
+
+    // 2. User Profiles
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.phone is string && data.phone.size() <= 20 &&
+             data.role in ['collector', 'recycler', 'admin'] &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 200)) &&
+             (!('preferredLanguage' in data) || (data.preferredLanguage is string && data.preferredLanguage.size() <= 10));
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'preferredLanguage', 'location', 'verified']) &&
+         incoming().role == existing().role)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 3. Recyclers & Rate Cards
+    function isValidRecycler(data) {
+      return data.name is string && data.name.size() <= 150 &&
+             data.location is string && data.location.size() <= 250 &&
+             data.verificationStatus in ['verified', 'unverified'] &&
+             (!('cpcbRegistrationNo' in data) || data.cpcbRegistrationNo == null || (data.cpcbRegistrationNo is string && data.cpcbRegistrationNo.size() <= 100)) &&
+             (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 30));
+    }
+
+    match /recyclers/{recyclerId} {
+      // Recycler directory and published rate cards are visible for transparency
+      allow get: if isValidId(recyclerId);
+      allow list: if true;
+      allow create: if isValidId(recyclerId) && isValidRecycler(incoming());
+      allow update: if isValidId(recyclerId) && isValidRecycler(incoming()) && (
+        isAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['rates', 'contactPhone', 'location'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Transactions & Tamper-Evident Receipts
+    function isValidTransaction(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.collectorPhone is string && data.collectorPhone.size() <= 20 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.status in ['created', 'pending_pickup', 'in_transit', 'completed', 'cancelled'] &&
+             (!('weightKg' in data) || (data.weightKg is number && data.weightKg >= 0 && data.weightKg <= 50000)) &&
+             (!('finalWeightKg' in data) || data.finalWeightKg == null || (data.finalWeightKg is number && data.finalWeightKg >= 0 && data.finalWeightKg <= 50000)) &&
+             (!('indicativePrice' in data) || data.indicativePrice == null || (data.indicativePrice is number && data.indicativePrice >= 0)) &&
+             (!('finalPrice' in data) || data.finalPrice == null || (data.finalPrice is number && data.finalPrice >= 0)) &&
+             (!('handoverOtp' in data) || (data.handoverOtp is string && data.handoverOtp.size() == 6)) &&
+             (!('tamperHash' in data) || data.tamperHash == null || (data.tamperHash is string && data.tamperHash.size() <= 64));
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isValidId(transactionId);
+      allow list: if true;
+      allow create: if isValidId(transactionId) && isValidTransaction(incoming());
+      allow update: if isValidId(transactionId) && isValidTransaction(incoming()) && (
+        isAdmin() ||
+        // Terminal state lock: completed transactions cannot be altered
+        (existing().status != 'completed' &&
+         incoming().diff(existing()).affectedKeys().hasOnly([
+           'status', 'finalWeightKg', 'finalPrice', 'recyclerId', 'recyclerName', 'tamperHash', 'timestamps'
+         ]))
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}

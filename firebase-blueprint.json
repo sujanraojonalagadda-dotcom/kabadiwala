@@ -1,0 +1,202 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered informal waste collector, formal recycler representative, or platform admin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user identifier",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "description": "Verified Indian phone number formatted with +91 prefix",
+          "maxLength": 20
+        },
+        "role": {
+          "type": "string",
+          "description": "User role: collector, recycler, or admin",
+          "enum": ["collector", "recycler", "admin"]
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "description": "Language code for the interface (hi, en, mr, ta, bn)",
+          "maxLength": 10
+        },
+        "location": {
+          "type": "string",
+          "description": "Ward, locality, or operating hub description",
+          "maxLength": 200
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Whether the identity has undergone verification"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of user profile registration"
+        }
+      },
+      "required": ["id", "phone", "role"]
+    },
+    "RecyclerRecord": {
+      "title": "RecyclerRecord",
+      "description": "Formal e-waste recycling facility with CPCB compliance record and live rate card",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique recycler identifier",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Company name of the authorized recycling facility",
+          "maxLength": 150
+        },
+        "location": {
+          "type": "string",
+          "description": "Physical facility address or industrial estate zone",
+          "maxLength": 250
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "Authorized contact telephone number",
+          "maxLength": 30
+        },
+        "verificationStatus": {
+          "type": "string",
+          "description": "Formal compliance status: verified or unverified",
+          "enum": ["verified", "unverified"]
+        },
+        "cpcbRegistrationNo": {
+          "type": "string",
+          "description": "Central Pollution Control Board official registration code",
+          "maxLength": 100
+        },
+        "is_test": {
+          "type": "boolean",
+          "description": "Flag marking whether this facility is test data"
+        }
+      },
+      "required": ["id", "name", "location", "verificationStatus"]
+    },
+    "TransactionRecord": {
+      "title": "TransactionRecord",
+      "description": "Tamper-evident record of an e-waste handover between collector and verified recycler",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique transaction tracking code (KC-YYYY-NNNNNN)",
+          "maxLength": 64
+        },
+        "collectorPhone": {
+          "type": "string",
+          "description": "Phone number of informal collector initiating pickup",
+          "maxLength": 20
+        },
+        "collectorName": {
+          "type": "string",
+          "description": "Name of the informal collector",
+          "maxLength": 100
+        },
+        "recyclerId": {
+          "type": "string",
+          "description": "Target formal recycler facility ID",
+          "maxLength": 128
+        },
+        "recyclerName": {
+          "type": "string",
+          "description": "Name of formal recycler facility",
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "description": "Designated e-waste category",
+          "maxLength": 50
+        },
+        "weightKg": {
+          "type": "number",
+          "description": "Estimated or weighed mass in kilograms"
+        },
+        "condition": {
+          "type": "string",
+          "description": "Working, Repairable, or Scrap condition",
+          "maxLength": 50
+        },
+        "indicativePrice": {
+          "type": "number",
+          "description": "Pre-handover calculated valuation"
+        },
+        "finalWeightKg": {
+          "type": "number",
+          "description": "Scale-confirmed weight recorded upon physical check-in"
+        },
+        "finalPrice": {
+          "type": "number",
+          "description": "Final settlement price paid to collector"
+        },
+        "handoverOtp": {
+          "type": "string",
+          "description": "6-digit single-use physical verification OTP",
+          "maxLength": 6
+        },
+        "tamperHash": {
+          "type": "string",
+          "description": "Cryptographic integrity audit hash",
+          "maxLength": 64
+        },
+        "status": {
+          "type": "string",
+          "description": "Transaction lifecycle stage",
+          "enum": ["created", "pending_pickup", "in_transit", "completed", "cancelled"]
+        },
+        "is_test": {
+          "type": "boolean",
+          "description": "Whether this transaction is generated under Guided Test Mode"
+        }
+      },
+      "required": ["id", "collectorPhone", "category", "status"]
+    },
+    "ConnectionTest": {
+      "title": "ConnectionTest",
+      "description": "Healthcheck document for verifying Firestore client connectivity on initial boot",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Connection test status string",
+          "maxLength": 30
+        }
+      },
+      "required": ["status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles including informal collectors, recyclers, and platform admins"
+    },
+    "/recyclers/{recyclerId}": {
+      "schema": "RecyclerRecord",
+      "description": "Authorized CPCB recycling facilities with live published rate cards"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "TransactionRecord",
+      "description": "Tamper-evident audit trail of e-waste handovers"
+    },
+    "/test/{testId}": {
+      "schema": "ConnectionTest",
+      "description": "Diagnostic document for getDocFromServer boot verification"
+    }
+  }
+}

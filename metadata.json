@@ -1,0 +1,11 @@
+{
+  "name": "Kabadiwala Connect",
+  "description": "Honest e-waste channelization platform connecting informal waste collectors with verified formal recyclers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
